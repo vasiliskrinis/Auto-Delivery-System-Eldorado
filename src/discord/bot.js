@@ -195,7 +195,17 @@ async function handleCommand(message, command, args) {
       };
 
       const prevDryRun = process.env.DRY_RUN;
-      if (isDryRun) process.env.DRY_RUN = 'true';
+      if (isDryRun) {
+        process.env.DRY_RUN = 'true';
+        // Stub Eldorado calls so testdeliver works without valid cookies
+        const eldorado = require('../eldorado/client');
+        eldorado._testStubs = {
+          markDelivered: eldorado.markDelivered,
+          sendMessage:   eldorado.sendMessage,
+        };
+        eldorado.markDelivered = async (id) => log.info(`[Test] Would mark ${id} delivered on Eldorado`);
+        eldorado.sendMessage   = async (id, msg) => log.info(`[Test] Would send message for ${id}: "${msg}"`);
+      }
 
       try {
         await processOrder(fakeOrder);
@@ -206,6 +216,14 @@ async function handleCommand(message, command, args) {
         await reply.edit(`❌ Failed: ${err.message}`);
       } finally {
         process.env.DRY_RUN = prevDryRun ?? '';
+        if (isDryRun) {
+          const eldorado = require('../eldorado/client');
+          if (eldorado._testStubs) {
+            eldorado.markDelivered = eldorado._testStubs.markDelivered;
+            eldorado.sendMessage   = eldorado._testStubs.sendMessage;
+            delete eldorado._testStubs;
+          }
+        }
       }
       break;
     }
