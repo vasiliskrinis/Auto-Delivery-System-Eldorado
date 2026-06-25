@@ -181,7 +181,7 @@ async function handleCommand(message, command, args) {
       }
 
       const reply = await message.reply(
-        `${isDryRun ? '🧪 Dry-run' : '📬 Delivering'} **${qty}× ${item}** → \`@${username}\`…`
+        `${isDryRun ? '🧪 Testing' : '📬 Delivering'} **${qty}× ${item}** → \`@${username}\`…`
       );
 
       const { processOrder } = require('../pipeline/processor');
@@ -194,28 +194,26 @@ async function handleCommand(message, command, args) {
         createdAt:     new Date().toISOString(),
       };
 
-      const prevDryRun = process.env.DRY_RUN;
+      // testdeliver: do real screen automation but skip Eldorado API calls
+      // deliver: do everything for real
       if (isDryRun) {
-        process.env.DRY_RUN = 'true';
-        // Stub Eldorado calls so testdeliver works without valid cookies
         const eldorado = require('../eldorado/client');
         eldorado._testStubs = {
           markDelivered: eldorado.markDelivered,
           sendMessage:   eldorado.sendMessage,
         };
-        eldorado.markDelivered = async (id) => log.info(`[Test] Would mark ${id} delivered on Eldorado`);
-        eldorado.sendMessage   = async (id, msg) => log.info(`[Test] Would send message for ${id}: "${msg}"`);
+        eldorado.markDelivered = async (id) => log.info(`[Test] Skipping markDelivered for ${id}`);
+        eldorado.sendMessage   = async (id, msg) => log.info(`[Test] Skipping sendMessage for ${id}`);
       }
 
       try {
         await processOrder(fakeOrder);
         await reply.edit(
-          `${isDryRun ? '🧪 Dry-run complete' : '✅ Delivered'}: **${qty}× ${item}** → \`@${username}\``
+          `${isDryRun ? '🧪 Test complete' : '✅ Delivered'}: **${qty}× ${item}** → \`@${username}\``
         );
       } catch (err) {
         await reply.edit(`❌ Failed: ${err.message}`);
       } finally {
-        process.env.DRY_RUN = prevDryRun ?? '';
         if (isDryRun) {
           const eldorado = require('../eldorado/client');
           if (eldorado._testStubs) {
