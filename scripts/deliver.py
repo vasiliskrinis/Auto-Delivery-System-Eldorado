@@ -58,13 +58,23 @@ def _wait(key, fallback_ms=500):
 
 
 def _tap(x, y):
-    pyautogui.click(int(x), int(y))
+    # Roblox often ignores pyautogui's instant click(), so move first,
+    # let the engine register the hover, then do a deliberate down/up.
+    x, y = int(x), int(y)
+    pyautogui.moveTo(x, y, duration=0.25)
+    time.sleep(0.15)
+    pyautogui.mouseDown(x, y)
+    time.sleep(0.12)
+    pyautogui.mouseUp(x, y)
+    time.sleep(0.1)
 
 
 def _type(text):
-    pyautogui.hotkey('ctrl', 'a')
+    pyautogui.hotkey('command', 'a')   # Mac: select all in the field
     time.sleep(0.1)
-    pyautogui.typewrite(text, interval=0.05)
+    pyautogui.press('delete')
+    time.sleep(0.1)
+    pyautogui.typewrite(text, interval=0.08)
 
 
 def _screenshot():
