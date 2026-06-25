@@ -14,7 +14,15 @@ let browser = null;
 let page    = null;
 
 async function _init() {
-  browser = await chromium.launch({ headless: true });
+  // Use system-installed Chromium if available (e.g. on cloud environments),
+  // otherwise let Playwright find its own bundled browser.
+  const executablePath = process.env.PLAYWRIGHT_BROWSERS_PATH
+    ? require('child_process')
+        .execSync('find /opt/pw-browsers -name "chrome-headless-shell" -o -name "chromium" 2>/dev/null | head -1')
+        .toString().trim() || undefined
+    : undefined;
+
+  browser = await chromium.launch({ headless: true, executablePath });
   const ctx = await browser.newContext({
     userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124 Safari/537.36',
   });
