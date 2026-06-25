@@ -38,7 +38,8 @@ function sendMail(recipientUsername, itemName, quantity) {
 
     log.debug(`[Roblox] Spawning deliver.py for ${recipientUsername} × ${quantity} ${itemName}`);
 
-    const proc = spawn('python3', args, { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const python = process.platform === 'darwin' ? 'python3.11' : 'python3';
+    const proc = spawn(python, args, { env, stdio: ['ignore', 'pipe', 'pipe'] });
 
     let stdout = '';
     let stderr = '';
