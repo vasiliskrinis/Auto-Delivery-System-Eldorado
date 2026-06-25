@@ -1,0 +1,7 @@
+{
+  "_help": "Maps the item name as listed on your Eldorado shop to the exact in-game item name used in the Grow a Garden 2 mail search field. Add one entry per item you sell.",
+
+  "Example Seed": "Example Seed",
+  "Rainbow Petal Sunflower": "Rainbow Petal Sunflower",
+  "Moonpetal": "Moonpetal"
+}
