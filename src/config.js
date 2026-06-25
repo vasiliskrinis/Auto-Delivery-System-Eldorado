@@ -2,14 +2,13 @@
 
 require('dotenv').config();
 
-const REQUIRED = [
-  'ELDORADO_EMAIL',
-  'ELDORADO_PASSWORD',
-];
-
-for (const key of REQUIRED) {
-  if (!process.env[key]) {
-    throw new Error(`Missing required environment variable: ${key}\nCopy .env.example to .env and fill it in.`);
+// Email/password only required when not using cookie-based auth
+const hasCookies = !!process.env.ELDORADO_COOKIES;
+if (!hasCookies) {
+  for (const key of ['ELDORADO_EMAIL', 'ELDORADO_PASSWORD']) {
+    if (!process.env[key]) {
+      throw new Error(`Missing required environment variable: ${key}\nEither set ELDORADO_EMAIL + ELDORADO_PASSWORD, or set ELDORADO_COOKIES (for Google/social login).`);
+    }
   }
 }
 
