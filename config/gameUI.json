@@ -40,16 +40,13 @@
     "x": 0, "y": 0, "enabled": true
   },
 
+  "inventory_scroll_area": {
+    "_help": "A point inside the inventory item grid used as the scroll target. Set during calibration.",
+    "x": 0, "y": 0
+  },
+
   "_item_templates_help": "For each item you sell, save a small PNG crop of its icon from the inventory grid into assets/ui-templates/items/<ItemName>.png. The delivery script uses OpenCV to find and tap the correct item.",
   "item_templates_dir": "assets/ui-templates/items",
-
-  "device": {
-    "_help": "ADB device serial (run 'adb devices' to find). Leave blank if only one device/emulator is connected.",
-    "serial": "",
-    "_resolution_help": "Your device/emulator screen resolution — used by calibrate.py",
-    "width": 1080,
-    "height": 2340
-  },
 
   "timings": {
     "_help": "Milliseconds to wait after each action for animations to finish",
