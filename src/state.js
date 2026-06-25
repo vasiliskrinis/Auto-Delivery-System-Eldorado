@@ -44,4 +44,14 @@ function markFailed(orderId, reason) {
   _save();
 }
 
-module.exports = { isProcessed, isFailed, markProcessed, markFailed };
+function clearFailed(orderId) {
+  delete _state.failed[orderId];
+  _save();
+}
+
+// Returns raw state object — used by Discord bot for listing orders
+function _raw() {
+  return _state;
+}
+
+module.exports = { isProcessed, isFailed, markProcessed, markFailed, clearFailed, _raw };

@@ -155,103 +155,103 @@ def _is_calibrated():
 
 # ── Delivery flow ─────────────────────────────────────────────────────────────
 
+# Set to True to log actions without making any ADB calls.
+DRY_RUN = os.environ.get('DRY_RUN', '').lower() == 'true'
+
+
+def _action(description, fn=None):
+    """In dry-run mode, print the action. In live mode, also execute fn()."""
+    print(f"[deliver] {'[DRY RUN] ' if DRY_RUN else ''}{description}")
+    if not DRY_RUN and fn:
+        fn()
+
+
 def send_mail(username: str, item_name: str, quantity: int):
-    if not _is_calibrated():
+    if not DRY_RUN and not _is_calibrated():
         raise RuntimeError(
             "UI coordinates not calibrated. Run: python3 scripts/calibrate.py"
         )
 
     # ── Step 1: Tap the mailbox object in the game world ─────────────────────
-    print(f"[deliver] Tapping mailbox object…")
-    _tap_coord('mailbox_object')
-    _wait('after_tap_mailbox')
+    _action("Tap mailbox object", lambda: (_tap_coord('mailbox_object'), _wait('after_tap_mailbox')))
 
     # ── Step 2: Tap 'Mailbox View' from the context menu ─────────────────────
-    print(f"[deliver] Selecting 'Mailbox View'…")
-    _tap_coord('mailbox_view_option')
-    _wait('after_tap_mailbox_view')
+    _action("Select 'Mailbox View'", lambda: (_tap_coord('mailbox_view_option'), _wait('after_tap_mailbox_view')))
 
     # ── Step 3: Tap 'Mail' button inside the Mailbox panel ───────────────────
-    print(f"[deliver] Tapping Mail button…")
-    _tap_coord('mail_button')
-    _wait('after_tap_mail_button')
+    _action("Tap Mail button", lambda: (_tap_coord('mail_button'), _wait('after_tap_mail_button')))
 
     # ── Step 4: Type the recipient username ───────────────────────────────────
-    print(f"[deliver] Typing username: {username}")
-    _tap_coord('username_search_field')
-    time.sleep(0.4)
-    # Clear any existing text first
-    _adb('shell', 'input', 'keyevent', 'KEYCODE_CTRL_A')
-    _adb('shell', 'input', 'keyevent', 'KEYCODE_DEL')
-    _type(username)
-    _wait('after_type_username')
+    def _do_type_username():
+        _tap_coord('username_search_field')
+        time.sleep(0.4)
+        _adb('shell', 'input', 'keyevent', 'KEYCODE_CTRL_A')
+        _adb('shell', 'input', 'keyevent', 'KEYCODE_DEL')
+        _type(username)
+        _wait('after_type_username')
+
+    _action(f"Type username: {username}", _do_type_username)
 
     # ── Step 5: Tap the first result in the autocomplete list ─────────────────
-    print(f"[deliver] Selecting player from search results…")
-    _tap_coord('first_search_result')
-    _wait('after_tap_user')
+    _action("Select player from search results", lambda: (_tap_coord('first_search_result'), _wait('after_tap_user')))
 
     # ── Step 6: Find and tap the item in the inventory grid ───────────────────
-    print(f"[deliver] Looking for item '{item_name}' in inventory…")
     template_path = os.path.join(ITEM_TPL_DIR, f"{item_name}.png")
 
-    screen = _screenshot()
-    pos = _find_template(template_path, screen)
-
-    if pos is None:
-        raise RuntimeError(
-            f"Item '{item_name}' not found in inventory screenshot. "
-            f"Make sure the template image exists at: {template_path}\n"
-            f"Also check that the item is in the bot account's inventory."
-        )
-
-    print(f"[deliver] Found '{item_name}' at ({pos[0]}, {pos[1]}) — tapping…")
-    _tap(*pos)
-    _wait('after_tap_item')
-
-    # If quantity > 1 and a quantity input appears, set it
-    # (The game may auto-select all of one item or show a qty dialog)
-    # Currently no qty dialog detected — sending full stack is the default.
-    # If you need partial quantities, calibrate a 'quantity_field' entry and
-    # uncomment the block below.
-    #
-    # qty_elem = UI.get('quantity_field', {})
-    # if qty_elem.get('enabled') and qty_elem.get('x', 0) != 0:
-    #     _tap(qty_elem['x'], qty_elem['y'])
-    #     _adb('shell', 'input', 'keyevent', 'KEYCODE_CTRL_A')
-    #     _type(str(quantity))
+    if DRY_RUN:
+        tpl_exists = os.path.exists(template_path)
+        _action(f"Find '{item_name}' in inventory (template {'found' if tpl_exists else 'MISSING — add to assets/ui-templates/items/'})")
+    else:
+        print(f"[deliver] Looking for item '{item_name}' in inventory…")
+        screen = _screenshot()
+        pos = _find_template(template_path, screen)
+        if pos is None:
+            raise RuntimeError(
+                f"Item '{item_name}' not found in inventory screenshot. "
+                f"Make sure the template image exists at: {template_path}\n"
+                f"Also check that the item is in the bot account's inventory."
+            )
+        print(f"[deliver] Found '{item_name}' at ({pos[0]}, {pos[1]}) — tapping…")
+        _tap(*pos)
+        _wait('after_tap_item')
 
     # ── Step 7: Tap Send ──────────────────────────────────────────────────────
-    print(f"[deliver] Tapping Send…")
-    _tap_coord('send_button')
-    _wait('after_tap_send')
+    _action("Tap Send button", lambda: (_tap_coord('send_button'), _wait('after_tap_send')))
 
     # ── Step 8: Close the panel (optional) ────────────────────────────────────
     close = UI.get('close_button', {})
-    if close.get('enabled', True) and close.get('x', 0) != 0:
-        _tap(close['x'], close['y'])
-        time.sleep(0.5)
+    if close.get('enabled', True) and (DRY_RUN or close.get('x', 0) != 0):
+        _action("Close mail panel", lambda: (_tap(close['x'], close['y']), time.sleep(0.5)))
 
-    print(f"[deliver] Done — '{item_name}' x{quantity} mailed to @{username}")
+    print(f"[deliver] {'[DRY RUN] ' if DRY_RUN else ''}Done — '{item_name}' x{quantity} mailed to @{username}")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def main():
+    global DRY_RUN
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--username', required=True, help='Recipient Roblox username')
     parser.add_argument('--item',     required=True, help='In-game item name')
     parser.add_argument('--qty',      required=True, type=int, help='Quantity to send')
+    parser.add_argument('--dry-run',  action='store_true', help='Log steps without making ADB calls')
     args = parser.parse_args()
 
-    # Verify ADB is reachable
-    devices = _adb('devices', check=False)
-    if 'device' not in devices:
-        sys.stderr.write(
-            "No ADB device found. Start Waydroid ('waydroid session start') "
-            "or connect your Android device and run 'adb devices' to verify.\n"
-        )
-        sys.exit(1)
+    if args.dry_run:
+        DRY_RUN = True
+
+    if DRY_RUN:
+        print("[deliver] DRY RUN mode — no ADB calls will be made.")
+    else:
+        # Verify ADB is reachable only in live mode
+        devices = _adb('devices', check=False)
+        if 'device' not in devices:
+            sys.stderr.write(
+                "No ADB device found. Start Waydroid ('waydroid session start') "
+                "or connect your Android device and run 'adb devices' to verify.\n"
+            )
+            sys.exit(1)
 
     try:
         send_mail(args.username, args.item, args.qty)

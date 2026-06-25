@@ -1,10 +1,11 @@
 'use strict';
 
-const path     = require('path');
-const eldorado = require('../eldorado/client');
-const deliver  = require('../roblox/deliver');
-const state    = require('../state');
-const log      = require('../logger');
+const path       = require('path');
+const eldorado   = require('../eldorado/client');
+const deliver    = require('../roblox/deliver');
+const state      = require('../state');
+const controller = require('../controller');
+const log        = require('../logger');
 const { withRetry } = require('./retry');
 
 const itemMap = require(path.resolve(__dirname, '../../config/itemMap.json'));
@@ -60,10 +61,12 @@ async function processOrder(order) {
     // 5. Persist success
     state.markProcessed(orderId, { item: itemName, quantity, buyer: buyerUsername });
     log.info(`[Order ${orderId}] Complete.`);
+    await controller.notify(`✅ **Order ${orderId}** delivered\n\`${quantity}× ${itemName}\` → \`@${buyerUsername}\``);
 
   } catch (err) {
     log.error(`[Order ${orderId}] Failed: ${err.message}`);
     state.markFailed(orderId, err.message);
+    await controller.notify(`❌ **Order ${orderId}** failed\n\`${quantity}× ${itemName}\` → \`@${buyerUsername}\`\nReason: ${err.message}`);
     await _notifyBuyer(
       orderId,
       'There was an issue delivering your order. Please contact us and we will resolve it manually as soon as possible.'

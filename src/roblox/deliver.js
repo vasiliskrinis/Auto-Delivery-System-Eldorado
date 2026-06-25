@@ -20,16 +20,20 @@ const SCRIPT = path.resolve(__dirname, '../../scripts/deliver.py');
  */
 function sendMail(recipientUsername, itemName, quantity) {
   return new Promise((resolve, reject) => {
+    const dryRun = config.dryRun || process.env.DRY_RUN === 'true';
+
     const args = [
       SCRIPT,
       '--username', recipientUsername,
       '--item',     itemName,
       '--qty',      String(quantity),
+      ...(dryRun ? ['--dry-run'] : []),
     ];
 
     const env = {
       ...process.env,
       MAIL_SEND_WAIT: String(config.mailSendWaitMs),
+      DRY_RUN: dryRun ? 'true' : 'false',
     };
 
     log.debug(`[Roblox] Spawning deliver.py for ${recipientUsername} × ${quantity} ${itemName}`);

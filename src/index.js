@@ -1,12 +1,20 @@
 'use strict';
 
-const config    = require('./config');
-const eldorado  = require('./eldorado/client');
+const config       = require('./config');
+const eldorado     = require('./eldorado/client');
 const { processOrder } = require('./pipeline/processor');
-const state     = require('./state');
-const log       = require('./logger');
+const state        = require('./state');
+const controller   = require('./controller');
+const log          = require('./logger');
 
 async function poll() {
+  if (controller.isPaused()) {
+    log.debug('[Poll] Paused — skipping tick.');
+    return;
+  }
+
+  controller.setLastPoll(new Date());
+
   let orders;
   try {
     orders = await eldorado.getNewOrders();
@@ -24,8 +32,7 @@ async function poll() {
 
   log.info(`[Poll] ${newOrders.length} new order(s) found.`);
 
-  // Process orders sequentially — the Roblox game client can only do one
-  // delivery at a time (one mail UI at a time).
+  // Sequential — the game client can only do one mail at a time
   for (const order of newOrders) {
     await processOrder(order).catch(err =>
       log.error(`[Poll] Unhandled error on order ${order.orderId}: ${err.message}`)
@@ -38,11 +45,23 @@ async function main() {
 
   await eldorado.init();
 
-  // Run once immediately, then on interval
+  // Start Discord bot if configured (non-blocking — bot failure won't stop delivery)
+  if (config.discord.token) {
+    try {
+      const { startBot } = require('./discord/bot');
+      await startBot();
+      log.info('[Discord] Bot online.');
+    } catch (err) {
+      log.warn(`[Discord] Bot failed to start: ${err.message} — continuing without Discord.`);
+    }
+  } else {
+    log.info('[Discord] No DISCORD_TOKEN set — running without Discord bot.');
+  }
+
+  // Run one poll immediately, then on interval
   await poll();
   const timer = setInterval(poll, config.pollIntervalMs);
 
-  // Graceful shutdown
   async function shutdown(sig) {
     log.info(`Received ${sig} — shutting down…`);
     clearInterval(timer);
