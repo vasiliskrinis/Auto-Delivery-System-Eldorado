@@ -115,6 +115,43 @@ def _action(description, fn=None):
         fn()
 
 
+# ── scroll-and-search ─────────────────────────────────────────────────────────
+
+def _find_item_with_scroll(template_path, item_name, max_scrolls=15, scroll_amount=-3):
+    if not os.path.exists(template_path):
+        raise RuntimeError(
+            f"Template image not found: {template_path}\n"
+            f"Save a cropped screenshot of the item icon to that path."
+        )
+
+    # Scroll position: use calibrated inventory_scroll_area if set, else center screen
+    scroll_elem = UI.get('inventory_scroll_area', {})
+    sw = scroll_elem.get('x', 0) or pyautogui.size()[0] // 2
+    sh = scroll_elem.get('y', 0) or pyautogui.size()[1] // 2
+
+    print(f"[deliver] Searching for '{item_name}' (will scroll up to {max_scrolls} times)…")
+
+    # Scroll to top of inventory first
+    pyautogui.click(sw, sh)
+    time.sleep(0.3)
+    for _ in range(10):
+        pyautogui.scroll(10, x=sw, y=sh)
+    time.sleep(0.5)
+
+    for attempt in range(max_scrolls + 1):
+        pos = _find_template(template_path)
+        if pos:
+            return pos
+        if attempt < max_scrolls:
+            pyautogui.scroll(scroll_amount, x=sw, y=sh)
+            time.sleep(0.4)
+
+    raise RuntimeError(
+        f"Item '{item_name}' not found after scrolling through inventory. "
+        f"Check that the template image matches the in-game icon."
+    )
+
+
 # ── delivery flow ─────────────────────────────────────────────────────────────
 
 def send_mail(username: str, item_name: str, quantity: int):
@@ -142,14 +179,7 @@ def send_mail(username: str, item_name: str, quantity: int):
         tpl_exists = os.path.exists(template_path)
         _action(f"Find '{item_name}' in inventory (template {'found' if tpl_exists else 'MISSING — add to assets/ui-templates/items/'})")
     else:
-        print(f"[deliver] Looking for item '{item_name}' in inventory…")
-        screen = _screenshot()
-        pos = _find_template(template_path, screen)
-        if pos is None:
-            raise RuntimeError(
-                f"Item '{item_name}' not found on screen. "
-                f"Make sure the template image exists at: {template_path}"
-            )
+        pos = _find_item_with_scroll(template_path, item_name)
         print(f"[deliver] Found '{item_name}' at ({pos[0]}, {pos[1]}) — clicking…")
         _tap(*pos)
         _wait('after_tap_item')
