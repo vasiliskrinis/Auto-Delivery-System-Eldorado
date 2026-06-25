@@ -11,40 +11,40 @@ const log        = require('../logger');
 
 const COMMANDS = [
   new SlashCommandBuilder()
-    .setName('status')
+    .setName('eldstatus')
     .setDescription('Show the bot status: running/paused, uptime, last poll, Eldorado mode'),
 
   new SlashCommandBuilder()
-    .setName('orders')
+    .setName('eldorders')
     .setDescription('List recently processed orders')
     .addIntegerOption(o => o.setName('count').setDescription('How many to show (default 5)').setMinValue(1).setMaxValue(20)),
 
   new SlashCommandBuilder()
-    .setName('failed')
+    .setName('eldfailed')
     .setDescription('List failed orders that need attention'),
 
   new SlashCommandBuilder()
-    .setName('retry')
+    .setName('eldretry')
     .setDescription('Retry a failed order')
-    .addStringOption(o => o.setName('order_id').setDescription('Order ID from /failed').setRequired(true)),
+    .addStringOption(o => o.setName('order_id').setDescription('Order ID from /eldfailed').setRequired(true)),
 
   new SlashCommandBuilder()
-    .setName('pause')
+    .setName('eldpause')
     .setDescription('Pause automatic order polling'),
 
   new SlashCommandBuilder()
-    .setName('resume')
+    .setName('eldresume')
     .setDescription('Resume automatic order polling'),
 
   new SlashCommandBuilder()
-    .setName('deliver')
+    .setName('elddeliver')
     .setDescription('Manually trigger a delivery (real — actually sends in-game mail)')
     .addStringOption(o => o.setName('username').setDescription('Roblox @username of the buyer').setRequired(true))
     .addStringOption(o => o.setName('item').setDescription('Item name (must match itemMap.json)').setRequired(true))
     .addIntegerOption(o => o.setName('qty').setDescription('Quantity to send').setRequired(true).setMinValue(1)),
 
   new SlashCommandBuilder()
-    .setName('testdeliver')
+    .setName('eldtestdeliver')
     .setDescription('Dry-run delivery — logs all steps without actually tapping the game')
     .addStringOption(o => o.setName('username').setDescription('Roblox @username').setRequired(true))
     .addStringOption(o => o.setName('item').setDescription('Item name').setRequired(true))
@@ -105,7 +105,7 @@ async function startBot() {
 async function handleCommand(interaction) {
   switch (interaction.commandName) {
 
-    case 'status': {
+    case 'eldstatus': {
       const s = controller.getStatus();
       const uptimeMs = Date.now() - s.startedAt.getTime();
       const uptime   = _formatDuration(uptimeMs);
@@ -128,7 +128,7 @@ async function handleCommand(interaction) {
       break;
     }
 
-    case 'orders': {
+    case 'eldorders': {
       const count   = interaction.options.getInteger('count') ?? 5;
       const entries = Object.entries(state._raw().processed).slice(-count).reverse();
 
@@ -150,7 +150,7 @@ async function handleCommand(interaction) {
       break;
     }
 
-    case 'failed': {
+    case 'eldfailed': {
       const entries = Object.entries(state._raw().failed);
 
       if (entries.length === 0) {
@@ -172,7 +172,7 @@ async function handleCommand(interaction) {
       break;
     }
 
-    case 'retry': {
+    case 'eldretry': {
       const orderId = interaction.options.getString('order_id');
       if (!state.isFailed(orderId)) {
         return interaction.reply({ content: `Order \`${orderId}\` is not in the failed list.`, ephemeral: true });
@@ -182,7 +182,7 @@ async function handleCommand(interaction) {
       break;
     }
 
-    case 'pause': {
+    case 'eldpause': {
       if (controller.isPaused()) {
         return interaction.reply({ content: 'Already paused.', ephemeral: true });
       }
@@ -192,7 +192,7 @@ async function handleCommand(interaction) {
       break;
     }
 
-    case 'resume': {
+    case 'eldresume': {
       if (!controller.isPaused()) {
         return interaction.reply({ content: 'Already running.', ephemeral: true });
       }
@@ -202,12 +202,12 @@ async function handleCommand(interaction) {
       break;
     }
 
-    case 'deliver':
-    case 'testdeliver': {
+    case 'elddeliver':
+    case 'eldtestdeliver': {
       const username = interaction.options.getString('username');
       const item     = interaction.options.getString('item');
       const qty      = interaction.options.getInteger('qty');
-      const isDryRun = interaction.commandName === 'testdeliver';
+      const isDryRun = interaction.commandName === 'eldtestdeliver';
 
       await interaction.deferReply();
 
