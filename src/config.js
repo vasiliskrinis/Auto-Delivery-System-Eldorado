@@ -16,7 +16,12 @@ module.exports = Object.freeze({
   eldorado: {
     email:    process.env.ELDORADO_EMAIL,
     password: process.env.ELDORADO_PASSWORD,
-    cookies:  process.env.ELDORADO_COOKIES ? JSON.parse(process.env.ELDORADO_COOKIES) : [],
+    cookies:  (() => {
+      const raw = process.env.ELDORADO_COOKIES;
+      if (!raw) return [];
+      try { return JSON.parse(raw); }
+      catch { throw new Error('ELDORADO_COOKIES is not valid JSON. Wrap the value in single quotes in .env and ensure it is on one line.'); }
+    })(),
   },
   discord: {
     token:     process.env.DISCORD_TOKEN      || '',
