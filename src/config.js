@@ -20,9 +20,7 @@ module.exports = Object.freeze({
     cookies:  process.env.ELDORADO_COOKIES ? JSON.parse(process.env.ELDORADO_COOKIES) : [],
   },
   discord: {
-    token:     process.env.DISCORD_TOKEN     || '',
-    clientId:  process.env.DISCORD_CLIENT_ID || '',
-    guildId:   process.env.DISCORD_GUILD_ID  || '',
+    token:     process.env.DISCORD_TOKEN      || '',
     channelId: process.env.DISCORD_CHANNEL_ID || '',
   },
   adbSerial:       process.env.ADB_DEVICE_SERIAL || '',

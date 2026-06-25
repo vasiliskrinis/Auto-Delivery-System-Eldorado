@@ -4,11 +4,10 @@
   "description": "Automated Gag2 delivery: monitors Eldorado orders and delivers items via in-game mail",
   "main": "src/index.js",
   "scripts": {
-    "start":              "node src/index.js",
-    "start:dry":          "DRY_RUN=true node src/index.js",
-    "test:order":         "node src/test/runOrder.js",
-    "register:discord":   "node scripts/register_discord.js",
-    "calibrate":          "python3 scripts/calibrate.py"
+    "start":        "node src/index.js",
+    "start:dry":    "DRY_RUN=true node src/index.js",
+    "test:order":   "node src/test/runOrder.js",
+    "calibrate":    "python3 scripts/calibrate.py"
   },
   "dependencies": {
     "axios": "^1.7.2",
