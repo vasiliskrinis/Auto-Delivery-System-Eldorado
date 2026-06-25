@@ -1,0 +1,64 @@
+{
+  "_help": "Tap coordinates for the Grow a Garden 2 mail flow on the Android/Waydroid screen. Run 'python3 scripts/calibrate.py' to set these interactively.",
+
+  "_flow_summary": [
+    "1. Tap mailbox object in-game → context menu appears",
+    "2. Tap 'Mailbox View' in the context menu",
+    "3. Mailbox panel opens → tap 'Mail' button",
+    "4. Username search field appears → type recipient username",
+    "5. Tap the player from the autocomplete list (first result)",
+    "6. Inventory grid appears → tap the item to send",
+    "7. Tap 'Send' button"
+  ],
+
+  "mailbox_object": {
+    "_help": "The physical mailbox object in the game world (you walk up to it and tap it)",
+    "x": 0, "y": 0
+  },
+  "mailbox_view_option": {
+    "_help": "The 'Mailbox View' option in the context menu that appears after tapping the mailbox",
+    "x": 0, "y": 0
+  },
+  "mail_button": {
+    "_help": "The 'Mail' button inside the Your Mailbox panel (bottom of the panel)",
+    "x": 0, "y": 0
+  },
+  "username_search_field": {
+    "_help": "The username search/input field where you type the recipient's name",
+    "x": 0, "y": 0
+  },
+  "first_search_result": {
+    "_help": "The first player result in the autocomplete list (the bot always picks the first one after typing the full username)",
+    "x": 0, "y": 0
+  },
+  "send_button": {
+    "_help": "The green 'Send' button on the inventory/compose screen",
+    "x": 0, "y": 0
+  },
+  "close_button": {
+    "_help": "The X / Close button to dismiss the mailbox panel after sending (set enabled:false to skip)",
+    "x": 0, "y": 0, "enabled": true
+  },
+
+  "_item_templates_help": "For each item you sell, save a small PNG crop of its icon from the inventory grid into assets/ui-templates/items/<ItemName>.png. The delivery script uses OpenCV to find and tap the correct item.",
+  "item_templates_dir": "assets/ui-templates/items",
+
+  "device": {
+    "_help": "ADB device serial (run 'adb devices' to find). Leave blank if only one device/emulator is connected.",
+    "serial": "",
+    "_resolution_help": "Your device/emulator screen resolution — used by calibrate.py",
+    "width": 1080,
+    "height": 2340
+  },
+
+  "timings": {
+    "_help": "Milliseconds to wait after each action for animations to finish",
+    "after_tap_mailbox": 800,
+    "after_tap_mailbox_view": 1000,
+    "after_tap_mail_button": 800,
+    "after_type_username": 1200,
+    "after_tap_user": 1200,
+    "after_tap_item": 500,
+    "after_tap_send": 3000
+  }
+}
