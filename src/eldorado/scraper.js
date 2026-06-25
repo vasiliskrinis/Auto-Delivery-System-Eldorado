@@ -27,9 +27,16 @@ async function _init() {
     userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124 Safari/537.36',
   });
 
-  // Restore session cookies if available
+  // Restore session cookies if available.
+  // Sanitize sameSite to valid Playwright values (browser exporters may use
+  // non-standard strings like "no_restriction", "unspecified", or empty).
   if (config.eldorado.cookies.length) {
-    await ctx.addCookies(config.eldorado.cookies);
+    const VALID_SAMESITE = new Set(['Strict', 'Lax', 'None']);
+    const cookies = config.eldorado.cookies.map(c => {
+      const ss = c.sameSite ? c.sameSite.charAt(0).toUpperCase() + c.sameSite.slice(1).toLowerCase() : '';
+      return { ...c, sameSite: VALID_SAMESITE.has(ss) ? ss : 'None' };
+    });
+    await ctx.addCookies(cookies);
   }
 
   page = await ctx.newPage();
