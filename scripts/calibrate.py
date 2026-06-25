@@ -54,7 +54,7 @@ class Calibrator:
     def __init__(self, screenshot_path):
         self.image       = Image.open(screenshot_path)
         self.orig_w, self.orig_h = self.image.size
-        self.scale       = min(900 / self.orig_h, 1400 / self.orig_w, 1.0)
+        self.scale       = min(600 / self.orig_h, 900 / self.orig_w, 1.0)
         self.disp_w      = int(self.orig_w * self.scale)
         self.disp_h      = int(self.orig_h * self.scale)
         self.result      = None
