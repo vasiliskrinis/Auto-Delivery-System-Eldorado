@@ -26,7 +26,6 @@ import time
 
 try:
     import pyautogui
-    import pygetwindow as gw
     from PIL import Image
     import numpy as np
     import cv2
