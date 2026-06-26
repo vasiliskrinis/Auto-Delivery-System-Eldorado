@@ -226,6 +226,33 @@ async function handleCommand(message, command, args) {
       break;
     }
 
+    // eld scrape — navigate to the orders page and dump HTML + screenshot
+    // Lets you trigger a debug dump while the orders page is visible so we
+    // can inspect the DOM structure and fix the selectors.
+    case 'scrape': {
+      await message.reply('📸 Navigating to the Eldorado orders page and taking a snapshot…');
+      const eldorado = require('../eldorado/client');
+      const result = await eldorado.dumpPage({ navigate: true });
+      if (!result) {
+        return message.reply('❌ Dump failed — check the server logs.');
+      }
+
+      const fs = require('fs');
+      const pngExists = fs.existsSync(result.pngPath);
+
+      if (pngExists) {
+        const { AttachmentBuilder } = require('discord.js');
+        const attachment = new AttachmentBuilder(result.pngPath, { name: 'eldorado-page.png' });
+        await message.reply({
+          content: `📸 **Eldorado page snapshot**\nURL: \`${result.url}\`\nHTML also saved to \`data/eldorado-debug.html\``,
+          files: [attachment],
+        });
+      } else {
+        await message.reply(`📸 Dump done — URL: \`${result.url}\`\nFiles saved to \`data/eldorado-debug.*\``);
+      }
+      break;
+    }
+
     case 'help': {
       const embed = new EmbedBuilder()
         .setTitle('Auto-Delivery Bot — Commands')
@@ -239,6 +266,7 @@ async function handleCommand(message, command, args) {
           { name: 'eld pause / eld resume',              value: 'Stop or start the Eldorado polling loop' },
           { name: 'eld deliver <user> <qty> <item>',     value: 'Manually trigger a real delivery' },
           { name: 'eld testdeliver <user> <qty> <item>', value: 'Dry-run delivery (no real taps)' },
+          { name: 'eld scrape',                          value: 'Screenshot the Eldorado orders page for debugging' },
           { name: 'eld help',                            value: 'Show this message' },
         );
 

@@ -41,15 +41,49 @@ async function _init() {
 
   page = await ctx.newPage();
   await _ensureLoggedIn();
+  await _probeOrdersUrl();
 }
 
-const ORDERS_URL = process.env.ELDORADO_ORDERS_URL || 'https://eldorado.gg/dashboard/sales';
+// Eldorado URL for the seller orders/sales dashboard page.
+// The system probes a few known patterns at startup and picks the one that
+// resolves to a real orders page (not a redirect to login or 404).
+const ORDERS_URL_CANDIDATES = [
+  process.env.ELDORADO_ORDERS_URL,                     // explicit override wins
+  'https://eldorado.gg/dashboard/sales',
+  'https://eldorado.gg/account/orders',
+  'https://eldorado.gg/sell/dashboard',
+  'https://eldorado.gg/dashboard',
+].filter(Boolean);
+
+let ORDERS_URL = ORDERS_URL_CANDIDATES[0];
 
 // 'networkidle' never settles on Eldorado (live analytics/websockets), which
 // caused 30s timeouts. Use 'domcontentloaded' + a short settle pause instead.
 async function _goto(url) {
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
   await page.waitForTimeout(2500);
+}
+
+async function _probeOrdersUrl() {
+  for (const url of ORDERS_URL_CANDIDATES) {
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.waitForTimeout(1500);
+      const finalUrl = page.url();
+      // Skip if we got redirected to a login/error page
+      if (finalUrl.includes('/login') || finalUrl.includes('/signin') || finalUrl.includes('/404')) {
+        log.debug(`[Eldorado Scraper] URL probe: ${url} → login/error redirect, skipping.`);
+        continue;
+      }
+      ORDERS_URL = url;
+      log.info(`[Eldorado Scraper] Orders URL resolved: ${ORDERS_URL}`);
+      return;
+    } catch (err) {
+      log.debug(`[Eldorado Scraper] URL probe failed for ${url}: ${err.message}`);
+    }
+  }
+  log.warn(`[Eldorado Scraper] Could not auto-detect orders URL — using default: ${ORDERS_URL_CANDIDATES[0]}`);
+  ORDERS_URL = ORDERS_URL_CANDIDATES[0];
 }
 
 async function _ensureLoggedIn() {
@@ -110,19 +144,33 @@ async function getOrders() {
 }
 
 /**
- * Saves the current page HTML + a screenshot so we can identify the real
- * order DOM structure. Enable with ELDORADO_DEBUG=true in .env.
+ * Saves the current page HTML + a screenshot for DOM structure inspection.
+ * Enable automatically with ELDORADO_DEBUG=true, or call manually via Discord.
+ * @param {{ navigate?: boolean }} [opts]
+ * @returns {Promise<{ htmlPath: string, pngPath: string, url: string } | null>}
  */
-async function _dumpPage() {
+async function dumpPage(opts = {}) {
+  if (!page) await _init();
   try {
+    if (opts.navigate) await _goto(ORDERS_URL);
     const fs = require('fs');
+    if (!fs.existsSync('./data')) fs.mkdirSync('./data', { recursive: true });
     const html = await page.content();
-    fs.writeFileSync('./data/eldorado-debug.html', html);
-    await page.screenshot({ path: './data/eldorado-debug.png', fullPage: true });
-    log.warn(`[Eldorado Scraper] No orders parsed. Dumped page to data/eldorado-debug.html and .png (url: ${page.url()})`);
+    const htmlPath = './data/eldorado-debug.html';
+    const pngPath  = './data/eldorado-debug.png';
+    fs.writeFileSync(htmlPath, html);
+    await page.screenshot({ path: pngPath, fullPage: false }); // viewport only to keep size small
+    const url = page.url();
+    log.info(`[Eldorado Scraper] Debug dump saved — ${url}`);
+    return { htmlPath, pngPath, url };
   } catch (err) {
     log.warn(`[Eldorado Scraper] Debug dump failed: ${err.message}`);
+    return null;
   }
+}
+
+async function _dumpPage() {
+  await dumpPage();
 }
 
 async function markDelivered(orderId) {
@@ -151,4 +199,4 @@ async function shutdown() {
   }
 }
 
-module.exports = { getOrders, markDelivered, sendMessage, shutdown };
+module.exports = { getOrders, markDelivered, sendMessage, shutdown, dumpPage };

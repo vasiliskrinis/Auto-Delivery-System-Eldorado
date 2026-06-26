@@ -28,5 +28,6 @@ async function getNewOrders()           { return _backend().getOrders(); }
 async function markDelivered(orderId)   { return _backend().markDelivered(orderId); }
 async function sendMessage(orderId, msg){ return _backend().sendMessage(orderId, msg); }
 async function shutdown()               { return scraper.shutdown(); }
+async function dumpPage(opts)           { return scraper.dumpPage(opts); }
 
-module.exports = { init, getNewOrders, markDelivered, sendMessage, shutdown };
+module.exports = { init, getNewOrders, markDelivered, sendMessage, shutdown, dumpPage };
