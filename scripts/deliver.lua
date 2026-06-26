@@ -223,21 +223,43 @@ end
 
 local function findMailItem(itemName)
     local groups = buildMailGroups()
-    if DEBUG then
-        log("Inventory has " .. #groups .. " giftable groups:")
-        for _, g in ipairs(groups) do
-            log(string.format("   %s [%s] x%d", g.Display, g.Category, g.Count))
-        end
+    log("Inventory has " .. #groups .. " giftable item group(s):")
+    for _, g in ipairs(groups) do
+        log(string.format("   - %s [%s] x%d", g.Display, g.Category, g.Count))
     end
+
     local want = norm(itemName)
-    -- exact (normalised) match
-    for _, g in ipairs(groups) do
-        if norm(g.Display) == want then return g end
-    end
-    -- partial match either direction
-    for _, g in ipairs(groups) do
+    -- If the requested name mentions "seed", strongly prefer the Seeds category
+    -- so we don't grab a grown plant / fruit of the same base name.
+    local wantsSeed = tostring(itemName):lower():find("seed", 1, true) ~= nil
+
+    local function score(g)
         local d = norm(g.Display)
-        if d:find(want, 1, true) or want:find(d, 1, true) then return g end
+        local exact   = (d == want)
+        local dHasW   = d:find(want, 1, true) ~= nil
+        local wHasD   = want:find(d, 1, true) ~= nil
+        if not (exact or dHasW or wHasD) then return -1 end
+        local s = 0
+        if exact then s = s + 100 end
+        if dHasW then s = s + 30 end
+        if wHasD then s = s + 20 end
+        -- Category preference
+        if wantsSeed and g.Category == "Seeds" then s = s + 50 end
+        if wantsSeed and g.Category ~= "Seeds" then s = s - 25 end
+        -- Closer length = better
+        s = s - math.abs(#d - #want)
+        return s
+    end
+
+    local best, bestScore = nil, -1
+    for _, g in ipairs(groups) do
+        local sc = score(g)
+        if sc > bestScore then best, bestScore = g, sc end
+    end
+
+    if best and bestScore >= 0 then
+        log(string.format("Matched '%s' -> %s [%s] (score %d)", itemName, best.Display, best.Category, bestScore))
+        return best
     end
     return nil
 end
@@ -315,7 +337,7 @@ local function deliver(order)
     if not userId then
         return false, "Could not resolve username '" .. tostring(username) .. "'"
     end
-    dbg("Resolved @" .. username .. " -> userId " .. userId)
+    log("Resolved @" .. username .. " -> userId " .. userId)
 
     local mailItem = findMailItem(item)
     if not mailItem then
@@ -333,13 +355,18 @@ local function deliver(order)
     local note = "Auto-delivery — thanks for your purchase!"
     local sent = 0
     for _, batch in ipairs(batches) do
+        local entry = batch[1]
+        log(string.format("SendBatch -> userId=%d  Category=%s  ItemKey=%s  Count=%s",
+            userId, tostring(entry.Category), tostring(entry.ItemKey), tostring(entry.Count)))
         local ok, success, message = pcall(function()
             return NetworkRemotes.Mailbox.SendBatch:Fire(userId, batch, note)
         end)
+        log(string.format("  -> ok=%s success=%s message=%s",
+            tostring(ok), tostring(success), tostring(message)))
         if ok and success then
             sent = sent + 1
         else
-            return false, "SendBatch failed: " .. tostring(message or "unknown error")
+            return false, "SendBatch rejected: " .. tostring(message or "server returned false")
         end
         task.wait(mailItem.Stackable and 0.2 or 0.4)
     end
