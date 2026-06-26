@@ -8,7 +8,13 @@ const controller = require('../controller');
 const log        = require('../logger');
 const { withRetry } = require('./retry');
 
-const itemMap = require(path.resolve(__dirname, '../../config/itemMap.json'));
+const rawItemMap = require(path.resolve(__dirname, '../../config/itemMap.json'));
+// Normalise keys to lowercase for case-insensitive override lookup.
+const itemMap = {};
+for (const [k, v] of Object.entries(rawItemMap)) {
+  if (k.startsWith('_')) continue; // skip comment/help keys
+  itemMap[k.toLowerCase()] = v;
+}
 
 // Prevents the same order from being processed twice if a slow delivery
 // overlaps with the next poll tick.
@@ -27,13 +33,15 @@ async function processOrder(order) {
   try {
     log.info(`[Order ${orderId}] Starting — ${quantity}× "${itemName}" → @${buyerUsername}`);
 
-    // 1. Resolve item name to in-game name
-    const inGameItem = itemMap[itemName];
-    if (!inGameItem) {
-      log.error(`[Order ${orderId}] Unknown item "${itemName}" — not in itemMap.json. Marking failed.`);
-      state.markFailed(orderId, `unknown_item: ${itemName}`);
-      await _notifyBuyer(orderId, 'Sorry, there was a problem processing your order. Our team will contact you shortly.');
-      return;
+    // 1. Resolve item name to in-game name.
+    // itemMap is now an OVERRIDE map (case-insensitive) for when the Eldorado
+    // listing name differs from the in-game name. If there's no override, we
+    // pass the Eldorado name straight through — the in-game Lua fuzzy-matches
+    // it against the live inventory, so most items need no mapping at all.
+    const override = itemMap[itemName.toLowerCase()];
+    const inGameItem = override || itemName;
+    if (override) {
+      log.debug(`[Order ${orderId}] itemMap override: "${itemName}" → "${inGameItem}"`);
     }
 
     // 2. Send in-game mail via Roblox automation
