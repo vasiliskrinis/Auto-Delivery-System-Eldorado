@@ -72,36 +72,60 @@ local function looksLikeNetworkRemotes(t)
     return ok2 and send ~= nil and ok3 and look ~= nil
 end
 
+-- Confirm a candidate's remotes are genuinely live: LookupPlayer on our own
+-- name must return our own UserId. A decoy/stale table won't pass this.
+local function validateRemotes(t)
+    local ok, uid = pcall(function()
+        return t.Mailbox.LookupPlayer:Fire(LocalPlayer.Name)
+    end)
+    if ok and type(uid) == "number" and uid == LocalPlayer.UserId then
+        return true
+    end
+    return false, uid
+end
+
 local function findNetworkRemotes()
-    -- 1. Scan the garbage collector for the live table (most reliable).
+    local candidates = {}
+
+    -- 1. Collect candidates from the garbage collector (live tables).
     if type(getgc) == "function" then
         local ok, gc = pcall(getgc, true)
         if ok and type(gc) == "table" then
             for _, obj in ipairs(gc) do
                 if looksLikeNetworkRemotes(obj) then
-                    dbg("Found NetworkRemotes via getgc")
-                    return obj
+                    table.insert(candidates, { src = "getgc", obj = obj })
                 end
             end
         end
     end
 
-    -- 2. Try requiring likely ModuleScripts.
-    local candidates = {}
+    -- 2. Collect candidates by requiring likely ModuleScripts.
     for _, m in ipairs(ReplicatedStorage:GetDescendants()) do
         if m:IsA("ModuleScript") then
             local n = m.Name:lower()
             if n:find("network") or n:find("remote") or n:find("net") then
-                table.insert(candidates, m)
+                local ok, res = pcall(require, m)
+                if ok and looksLikeNetworkRemotes(res) then
+                    table.insert(candidates, { src = "require:" .. m:GetFullName(), obj = res })
+                end
             end
         end
     end
-    for _, m in ipairs(candidates) do
-        local ok, res = pcall(require, m)
-        if ok and looksLikeNetworkRemotes(res) then
-            dbg("Found NetworkRemotes via require: " .. m:GetFullName())
-            return res
+
+    dbg("NetworkRemotes candidates found: " .. #candidates)
+
+    -- Prefer a candidate that passes the live self-test.
+    for _, c in ipairs(candidates) do
+        if validateRemotes(c.obj) then
+            log("NetworkRemotes verified live via " .. c.src)
+            return c.obj
         end
+    end
+
+    -- None validated — fall back to the first shaped candidate but warn.
+    if candidates[1] then
+        log("WARNING: NetworkRemotes found but self-test did not pass — using first candidate (" .. candidates[1].src .. ")")
+        return candidates[1].obj
     end
 
     return nil
@@ -399,6 +423,14 @@ log("Locating game remotes…")
 NetworkRemotes = findNetworkRemotes()
 if NetworkRemotes then
     log("NetworkRemotes located ✓")
+    -- Self-test: confirm LookupPlayer resolves our own name to our own id.
+    local okSelf, selfId = validateRemotes(NetworkRemotes)
+    if okSelf then
+        log("Self-test OK ✓ — LookupPlayer(" .. LocalPlayer.Name .. ") = " .. LocalPlayer.UserId)
+    else
+        log("WARNING: Self-test FAILED — LookupPlayer returned: " .. tostring(selfId))
+        log("         The located remotes may be a decoy. Mail may silently fail.")
+    end
 else
     log("WARNING: NetworkRemotes not found yet — will retry when an order arrives.")
     log("         Make sure you are fully loaded into the game.")
