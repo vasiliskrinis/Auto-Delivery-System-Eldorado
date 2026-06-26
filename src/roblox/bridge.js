@@ -114,4 +114,4 @@ function shutdown() {
   }
 }
 
-module.exports = { sendOrder, shutdown, PORT };
+module.exports = { start: _startServer, sendOrder, shutdown, PORT };

@@ -2,6 +2,7 @@
 
 const config       = require('./config');
 const eldorado     = require('./eldorado/client');
+const bridge       = require('./roblox/bridge');
 const { processOrder } = require('./pipeline/processor');
 const state        = require('./state');
 const controller   = require('./controller');
@@ -43,6 +44,12 @@ async function poll() {
 async function main() {
   log.info('=== Auto-Delivery System starting ===');
 
+  // Start the Roblox bridge server immediately so the in-game Lua script
+  // can connect right away (it doesn't wait for the first order).
+  if (!config.dryRun) {
+    bridge.start();
+  }
+
   await eldorado.init();
 
   // Start Discord bot if configured (non-blocking — bot failure won't stop delivery)
@@ -65,6 +72,7 @@ async function main() {
   async function shutdown(sig) {
     log.info(`Received ${sig} — shutting down…`);
     clearInterval(timer);
+    bridge.shutdown();
     await eldorado.shutdown();
     process.exit(0);
   }
