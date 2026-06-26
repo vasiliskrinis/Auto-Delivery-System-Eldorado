@@ -43,11 +43,27 @@ async function _init() {
   await _ensureLoggedIn();
 }
 
-async function _ensureLoggedIn() {
-  await page.goto('https://eldorado.gg/dashboard/offers', { waitUntil: 'networkidle' });
+const ORDERS_URL = process.env.ELDORADO_ORDERS_URL || 'https://eldorado.gg/dashboard/sales';
 
-  // If redirected to login, perform credential login
+// 'networkidle' never settles on Eldorado (live analytics/websockets), which
+// caused 30s timeouts. Use 'domcontentloaded' + a short settle pause instead.
+async function _goto(url) {
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+  await page.waitForTimeout(2500);
+}
+
+async function _ensureLoggedIn() {
+  await _goto(ORDERS_URL);
+
+  // If redirected to login, perform credential login (only works for
+  // email/password accounts; Google-OAuth users rely on ELDORADO_COOKIES).
   if (page.url().includes('/login') || page.url().includes('/signin')) {
+    if (!config.eldorado.email || !config.eldorado.password) {
+      throw new Error(
+        'Not logged in to Eldorado and no email/password set. Your ELDORADO_COOKIES ' +
+        'have likely expired — re-export them from your browser (Cookie-Editor) and update .env.'
+      );
+    }
     log.info('[Eldorado Scraper] Logging in…');
     await page.fill('input[type="email"], input[name="email"]', config.eldorado.email);
     await page.fill('input[type="password"], input[name="password"]', config.eldorado.password);
@@ -64,13 +80,13 @@ async function getOrders() {
   if (!page) await _init();
 
   try {
-    await page.goto('https://eldorado.gg/dashboard/offers', { waitUntil: 'networkidle' });
+    await _goto(ORDERS_URL);
   } catch {
     // Stale context — reinitialise
     log.warn('[Eldorado Scraper] Page stale, reinitialising…');
     await shutdown();
     await _init();
-    await page.goto('https://eldorado.gg/dashboard/offers', { waitUntil: 'networkidle' });
+    await _goto(ORDERS_URL);
   }
 
   // Parse pending order rows from the dashboard table
@@ -86,13 +102,33 @@ async function getOrders() {
     }));
   });
 
+  if (orders.length === 0 && process.env.ELDORADO_DEBUG === 'true') {
+    await _dumpPage();
+  }
+
   return orders.filter(o => o.orderId && o.status === 'pending');
+}
+
+/**
+ * Saves the current page HTML + a screenshot so we can identify the real
+ * order DOM structure. Enable with ELDORADO_DEBUG=true in .env.
+ */
+async function _dumpPage() {
+  try {
+    const fs = require('fs');
+    const html = await page.content();
+    fs.writeFileSync('./data/eldorado-debug.html', html);
+    await page.screenshot({ path: './data/eldorado-debug.png', fullPage: true });
+    log.warn(`[Eldorado Scraper] No orders parsed. Dumped page to data/eldorado-debug.html and .png (url: ${page.url()})`);
+  } catch (err) {
+    log.warn(`[Eldorado Scraper] Debug dump failed: ${err.message}`);
+  }
 }
 
 async function markDelivered(orderId) {
   if (!page) await _init();
   // Navigate to the specific order and click the deliver button
-  await page.goto(`https://eldorado.gg/dashboard/offers/${orderId}`, { waitUntil: 'networkidle' });
+  await _goto(`${ORDERS_URL}/${orderId}`);
   const deliverBtn = page.locator('button:has-text("Deliver"), button:has-text("Mark as delivered"), [data-action="deliver"]');
   await deliverBtn.click();
   await page.waitForTimeout(1500);
@@ -100,7 +136,7 @@ async function markDelivered(orderId) {
 
 async function sendMessage(orderId, message) {
   if (!page) await _init();
-  await page.goto(`https://eldorado.gg/dashboard/offers/${orderId}`, { waitUntil: 'networkidle' });
+  await _goto(`${ORDERS_URL}/${orderId}`);
   const input = page.locator('textarea[placeholder*="message" i], textarea.chat-input, [data-message-input]');
   await input.fill(message);
   await page.locator('button:has-text("Send"), button[type="submit"]').last().click();
