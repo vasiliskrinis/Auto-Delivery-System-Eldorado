@@ -34,6 +34,7 @@ local httpRequest = (syn and syn.request)
     or request
 
 local function httpGet(url)
+    if not httpRequest then return nil end
     local ok, res = pcall(httpRequest, { Url = url, Method = "GET" })
     if ok then return res end
     return nil
@@ -348,7 +349,26 @@ local function deliver(order)
 end
 
 -- ── startup ────────────────────────────────────────────────────────────────────
-log("Starting up — locating game remotes…")
+log("Starting up…")
+
+-- Check HTTP support up front so failures are obvious.
+if not httpRequest then
+    log("ERROR: Your executor has no HTTP request function (request/syn.request).")
+    log("       This script cannot talk to the bridge without it.")
+    log("       Tell the bot owner so we can switch to file-based mode.")
+    return
+end
+do
+    local ping = httpGet(SERVER .. "/ping")
+    if ping and ping.StatusCode == 200 then
+        log("HTTP + bridge connection OK ✓ (executor supports requests)")
+    else
+        log("WARNING: Could not reach the bridge at " .. SERVER)
+        log("         Is 'npm start' running on the same machine? Continuing to poll…")
+    end
+end
+
+log("Locating game remotes…")
 NetworkRemotes = findNetworkRemotes()
 if NetworkRemotes then
     log("NetworkRemotes located ✓")
